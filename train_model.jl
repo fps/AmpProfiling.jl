@@ -18,13 +18,13 @@ function train_model(model, test, processed, batch_size, number_of_batches)
     opt = Flux.ADAM([Flux.params(model.linear_model) ; Flux.params(model.non_linear_model)])
 
     for batch in 1:number_of_batches
-        #println(batch)
+        println(batch)
         p = Permutations.array(Permutations.RandomPermutation(N))[1:batch_size]
         #println(p)
 
         xs = Array{Float64}(window_size,0)
         ys = Array{Float64}(1,0)
-        for index in 1:batch_size
+        @timed for index in 1:batch_size
             # println(p[index])
             x = test[p[index]:(p[index] + window_size - 1)]
             y = processed[p[index] + window_size - 1]
@@ -37,7 +37,7 @@ function train_model(model, test, processed, batch_size, number_of_batches)
         #println(size(ys))
 
         data = [(xs, ys)]
-        Flux.train!(loss, data, opt)  
+        @timed Flux.train!(loss, data, opt)  
         println(loss(xs, ys))
     end
 
