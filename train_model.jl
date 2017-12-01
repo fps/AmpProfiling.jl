@@ -4,6 +4,7 @@ import Permutations
 
 function train_model(model, test, processed, batch_size, number_of_batches)
     window_size = size(model.linear_model.W, 2)
+    #window_size = size(model.W, 2)
 
     loss(xs, ys) = Flux.mse(model(xs), ys)
 
@@ -14,9 +15,10 @@ function train_model(model, test, processed, batch_size, number_of_batches)
     println(N)
 
     #opt = Flux.SGD(Flux.params(model), 0.001)
-    opt = Flux.ADAM(Flux.params(model))
+    opt = Flux.ADAM([Flux.params(model.linear_model) ; Flux.params(model.non_linear_model)])
 
     for batch in 1:number_of_batches
+        #println(batch)
         p = Permutations.array(Permutations.RandomPermutation(N))[1:batch_size]
         #println(p)
 
