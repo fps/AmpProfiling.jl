@@ -12,13 +12,6 @@ module AmpProfiling
             Flux.Dense(trunc(Int, window_size/4), trunc(Int, window_size / 8), Flux.relu),
             Flux.Dense(trunc(Int, window_size/8), 1, Flux.relu))
     
-        struct model_model
-            linear_model
-            non_linear_model
-        end
-    
-    
-    
         function model(xs)
             return linear_model(xs) .+ non_linear_model(xs)
         end
