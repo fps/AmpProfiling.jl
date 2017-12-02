@@ -45,12 +45,13 @@ module AmpProfiling
 
     function createInputOutputBatches(input, output, batch_size)
         N = size(input,2)
-        dataset = []
 
         N_batches = trunc(Int, floor(N / batch_size))
 
+        dataset = Array{Any}(N_batches, 1)
+
         for index = 0:(N_batches - 1)
-            dataset = [dataset; (input[:, (1 + index * batch_size):((index + 1) * batch_size)], output[:, (1 + index * batch_size):((index + 1) * batch_size)])]
+            dataset[index+1] = (input[:, (1 + index * batch_size):((index + 1) * batch_size)], output[:, (1 + index * batch_size):((index + 1) * batch_size)])
         end
 
         return dataset
@@ -60,13 +61,13 @@ module AmpProfiling
         #window_size = size(model.linear_model.W, 2)
         #window_size = size(model.W[1], 2)
 
-        println("Creating input/output samples")
+        println("Creating input/output samples...")
         xs, ys = createInputOutputSamples(input, output, window_size)
     
         loss(a, b) = Flux.mse(model(a), b)
     
         N = size(xs, 2)
-        println(N)
+        println("# of input/output samples: $(N)")
     
         #opt = Flux.SGD(Flux.params(model), 0.1)
         #opt = Flux.ADAM([Flux.params(model.linear_model) ; Flux.params(model.non_linear_model)])
@@ -78,24 +79,11 @@ module AmpProfiling
         dataset = createInputOutputBatches(xs, ys, batch_size)
 
         for epoch in 1:number_of_epochs
-            println("Training epoch...")
+            println("Training epoch $(epoch)...")
             Flux.train!(loss, dataset, opt)
-            #Flux.train!(loss, dataset, opt, cb = Flux.throttle(evalcb, 1))
+            #Flux.train!(loss, dataset, opt, cb = Flux.throttle(evalcb, 15))
         end
-#        println("Training...")
-#        for batch in 1:number_of_batches
-#            println("Assembling batch...")
-#            println(batch)
-#            p = Permutations.array(Permutations.RandomPermutation(N))[1:batch_size]
-#            batch_xs = xs[:,p]
-#            batch_ys = ys[:,p]
-#    
-#            println("Train...")
-#            data = [(batch_xs, batch_ys)]
-#            Flux.train!(loss, data, opt)
-#            println(loss(xs, ys))
-#        end
-#    
+        
         return model
     end
 
