@@ -29,18 +29,31 @@ module AmpProfiling
 
     function createInputOutputSamples(input, output, window_size)
         N = min(length(input), length(output)) - window_size
-        #p = Permutations.array(Permutations.RandomPermutation(N))
+        p = Permutations.array(Permutations.RandomPermutation(N))
 
-        xs = Array{Float64}(window_size,0)
-        ys = Array{Float64}(1,0)
+        xs = Array{Float64}(window_size,N)
+        ys = Array{Float64}(1,N)
 
         for index in 1:N
-            x,y = createInputOutputsample(input, output, index, window_size)
-            xs = [xs x]
-            ys = [ys y]
+            x,y = createInputOutputSample(input, output, index, window_size)
+            xs[:,p[index]] = x
+            ys[:,p[index]] = y
         end
 
         return xs, ys
+    end
+
+    function createInputOutputBatches(input, output, batch_size)
+        N = size(input,2)
+        dataset = []
+
+        N_batches = trunc(Int, floor(N / batch_size))
+
+        for index = 0:(N_batches - 1)
+            dataset = [dataset; (input[:, (1 + index * batch_size):((index + 1) * batch_size)], output[:, (1 + index * batch_size):((index + 1) * batch_size)])]
+        end
+
+        return dataset
     end
 
     function train_model(model, window_size, input, output, batch_size, number_of_batches)
@@ -50,7 +63,7 @@ module AmpProfiling
         println("Creating input/output samples")
         xs, ys = createInputOutputSamples(input, output, window_size)
     
-        loss(xs, ys) = Flux.mse(model(xs), ys)
+        loss(a, b) = Flux.mse(model(a), b)
     
         N = size(xs, 2)
         println(N)
@@ -59,35 +72,30 @@ module AmpProfiling
         #opt = Flux.ADAM([Flux.params(model.linear_model) ; Flux.params(model.non_linear_model)])
         opt = Flux.ADAM(Flux.params(model))
    
-        println("Training...")
-        for batch in 1:number_of_batches
-            println(batch)
-            p = Permutations.array(Permutations.RandomPermutation(N))[1:batch_size]
-            #println(p)
-    
-            xs = Array{Float64}(window_size,0)
-            ys = Array{Float64}(1,0)
-            for index in 1:batch_size
-                window_start = p[index]
-                predicted_index= p[index] + window_size - 1
-                window_end   = predicted_index
-                # println(p[index])
-                x, y = createInputOutputSample(input, output, p[index], window_size)
-                #x = input[window_start:window_end]
-                #y = output[predicted_index]
-                xs = [xs x]
-                ys = [ys y]
-            end
-    
-            #println(model(xs))
-            #println(size(xs))
-            #println(size(ys))
-    
-            data = [(xs, ys)]
-            Flux.train!(loss, data, opt)
-            println(loss(xs, ys))
+        evalcb() = @show(loss(xs,ys))
+        
+        println("Assembling batches...")
+        dataset = createInputOutputBatches(xs, ys, batch_size)
+
+        for epoch in 1:number_of_batches
+            println("Training epoch...")
+            Flux.train!(loss, dataset, opt)
+            #Flux.train!(loss, dataset, opt, cb = Flux.throttle(evalcb, 1))
         end
-    
+#        println("Training...")
+#        for batch in 1:number_of_batches
+#            println("Assembling batch...")
+#            println(batch)
+#            p = Permutations.array(Permutations.RandomPermutation(N))[1:batch_size]
+#            batch_xs = xs[:,p]
+#            batch_ys = ys[:,p]
+#    
+#            println("Train...")
+#            data = [(batch_xs, batch_ys)]
+#            Flux.train!(loss, data, opt)
+#            println(loss(xs, ys))
+#        end
+#    
         return model
     end
 
