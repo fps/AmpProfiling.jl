@@ -15,9 +15,9 @@ window_size = 32
 m = AmpProfiling.create_model(window_size)
 
 batch_size = 32
-number_of_batches = 1000
+number_of_epochs = 10
 
-tm = AmpProfiling.train_model(m, window_size, training_input, training_output, batch_size, number_of_batches)
+tm = AmpProfiling.train_model(m, window_size, training_input, training_output, batch_size, number_of_epochs)
 
 moutput = (Float64)[]
 for index in 1:(size(test_input, 1) - window_size)

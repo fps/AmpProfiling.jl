@@ -56,7 +56,7 @@ module AmpProfiling
         return dataset
     end
 
-    function train_model(model, window_size, input, output, batch_size, number_of_batches)
+    function train_model(model, window_size, input, output, batch_size, number_of_epochs)
         #window_size = size(model.linear_model.W, 2)
         #window_size = size(model.W[1], 2)
 
@@ -77,7 +77,7 @@ module AmpProfiling
         println("Assembling batches...")
         dataset = createInputOutputBatches(xs, ys, batch_size)
 
-        for epoch in 1:number_of_batches
+        for epoch in 1:number_of_epochs
             println("Training epoch...")
             Flux.train!(loss, dataset, opt)
             #Flux.train!(loss, dataset, opt, cb = Flux.throttle(evalcb, 1))
