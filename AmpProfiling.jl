@@ -7,35 +7,59 @@ module AmpProfiling
         linear_model = Flux.Dense(window_size, 1)
     
         non_linear_model = Flux.Chain(
-            Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.relu),
-            Flux.Dense(trunc(Int, window_size/2), trunc(Int, window_size / 4), Flux.relu),
-            Flux.Dense(trunc(Int, window_size/4), trunc(Int, window_size / 8), Flux.relu),
-            Flux.Dense(trunc(Int, window_size/8), 1, Flux.relu))
+            Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.σ),
+            Flux.Dense(trunc(Int, window_size/2), trunc(Int, window_size / 4), Flux.σ),
+            Flux.Dense(trunc(Int, window_size/4), 1))
     
+        #non_linear_model = Flux.Dense(trunc(Int, window_size), 1, Flux.relu)
         function model(xs)
             return linear_model(xs) .+ non_linear_model(xs)
         end
     
-        return model
+        return non_linear_model
     end
     
     import Permutations
-    
-    function train_model(model, test, processed, batch_size, number_of_batches)
-        window_size = size(model.linear_model.W, 2)
-        #window_size = size(model.W, 2)
+
+    function createInputOutputSample(input, output, index, window_size)
+        x = input[index:(index+window_size-1)]
+        y = output[index+window_size-1]
+        return x, y
+    end
+
+    function createInputOutputSamples(input, output, window_size)
+        N = min(length(input), length(output)) - window_size
+        #p = Permutations.array(Permutations.RandomPermutation(N))
+
+        xs = Array{Float64}(window_size,0)
+        ys = Array{Float64}(1,0)
+
+        for index in 1:N
+            x,y = createInputOutputsample(input, output, index, window_size)
+            xs = [xs x]
+            ys = [ys y]
+        end
+
+        return xs, ys
+    end
+
+    function train_model(model, window_size, input, output, batch_size, number_of_batches)
+        #window_size = size(model.linear_model.W, 2)
+        #window_size = size(model.W[1], 2)
+
+        println("Creating input/output samples")
+        xs, ys = createInputOutputSamples(input, output, window_size)
     
         loss(xs, ys) = Flux.mse(model(xs), ys)
     
-        test_N = size(test, 1)
-        proc_N = size(processed, 1)
-    
-        N = min(test_N, proc_N) - window_size
+        N = size(xs, 2)
         println(N)
     
-        #opt = Flux.SGD(Flux.params(model), 0.001)
-        opt = Flux.ADAM([Flux.params(model.linear_model) ; Flux.params(model.non_linear_model)])
-    
+        #opt = Flux.SGD(Flux.params(model), 0.1)
+        #opt = Flux.ADAM([Flux.params(model.linear_model) ; Flux.params(model.non_linear_model)])
+        opt = Flux.ADAM(Flux.params(model))
+   
+        println("Training...")
         for batch in 1:number_of_batches
             println(batch)
             p = Permutations.array(Permutations.RandomPermutation(N))[1:batch_size]
@@ -43,10 +67,14 @@ module AmpProfiling
     
             xs = Array{Float64}(window_size,0)
             ys = Array{Float64}(1,0)
-            @timed for index in 1:batch_size
+            for index in 1:batch_size
+                window_start = p[index]
+                predicted_index= p[index] + window_size - 1
+                window_end   = predicted_index
                 # println(p[index])
-                x = test[p[index]:(p[index] + window_size - 1)]
-                y = processed[p[index] + window_size - 1]
+                x, y = createInputOutputSample(input, output, p[index], window_size)
+                #x = input[window_start:window_end]
+                #y = output[predicted_index]
                 xs = [xs x]
                 ys = [ys y]
             end
@@ -56,7 +84,7 @@ module AmpProfiling
             #println(size(ys))
     
             data = [(xs, ys)]
-            @timed Flux.train!(loss, data, opt)
+            Flux.train!(loss, data, opt)
             println(loss(xs, ys))
         end
     
