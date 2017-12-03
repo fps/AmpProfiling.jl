@@ -1,7 +1,7 @@
 include("AmpProfiling.jl")
 import WAV
 
-training_input = WAV.wavread("guitar_clean.wav")[1][:,1]
+training_input = WAV.wavread("guitar_short.wav")[1][:,1]
 println("# of training input samples: $(length(training_input))")
 
 training_output = WAV.wavread("guitar_processed.wav")[1][:,1]
@@ -15,7 +15,7 @@ window_size = 32
 m = AmpProfiling.create_model(window_size)
 
 batch_size = 128
-number_of_epochs = 500
+number_of_epochs = 50
 
 tm = AmpProfiling.train_model(m, window_size, training_input, training_output, batch_size, number_of_epochs)
 

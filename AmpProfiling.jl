@@ -3,14 +3,24 @@ module AmpProfiling
     import Flux
     import Flux.Tracker
     
+
+    """
+        Creates a model that operates on an input 
+        window of size `window_size`
+    """
     function create_model(window_size)
         linear_model = Flux.Dense(window_size, 1)
     
+    
         non_linear_model = Flux.Chain(
-            Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.σ),
+            Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.relu),
             Flux.Dense(trunc(Int, window_size/2), trunc(Int, window_size / 4), Flux.σ),
             Flux.Dense(trunc(Int, window_size/4), 1))
-    
+
+        #non_linear_model = Flux.Chain(
+        #    Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.σ),
+        #    Flux.Dense(trunc(Int, window_size/2), trunc(Int, window_size / 4), Flux.σ),
+        #    Flux.Dense(trunc(Int, window_size/4), 1))
         #non_linear_model = Flux.Dense(trunc(Int, window_size), 1, Flux.relu)
         function model(xs)
             return linear_model(xs) .+ non_linear_model(xs)
@@ -27,6 +37,11 @@ module AmpProfiling
         return x, y
     end
 
+    """
+        Takes input and output sequences and expands the inputs
+        so that each input vector contains all samples in the
+        `window_size`
+    """
     function createInputOutputSamples(input, output, window_size)
         N = min(length(input), length(output)) - window_size
         p = Permutations.array(Permutations.RandomPermutation(N))
@@ -85,6 +100,18 @@ module AmpProfiling
         end
         
         return model
+    end
+
+    function applyModel(model, input, window_size)
+        N = length(input) - window_size
+
+        out = zeros(N)
+
+        for index in 1:N
+            out[N] = Flux.Tracker.value(model(input[index:(index + window_size -1)]))[1]
+        end
+
+        return out
     end
 
     function generate_test_sound(sampling_rate, random_seed)
