@@ -14,6 +14,7 @@ module AmpProfiling
     
         non_linear_model = Flux.Chain(
             Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.relu),
+            Flux.Dense(trunc(Int, window_size / 2), trunc(Int, window_size / 2), Flux.relu),
             Flux.Dense(trunc(Int, window_size/2), trunc(Int, window_size / 4), Flux.σ),
             Flux.Dense(trunc(Int, window_size/4), 1))
 
@@ -30,6 +31,17 @@ module AmpProfiling
     end
     
     import Permutations
+
+    function createWindowedSamples(input, window_size)
+        N = length(input) - window_size
+        ret = Array{Float64}(window_size, N)
+
+        for index in 1:N
+            ret[:,index] = input[index:(index+window_size-1)]
+        end
+
+        return ret
+    end
 
     function createInputOutputSample(input, output, index, window_size)
         x = input[index:(index+window_size-1)]
@@ -103,15 +115,7 @@ module AmpProfiling
     end
 
     function applyModel(model, input, window_size)
-        N = length(input) - window_size
-
-        out = zeros(N)
-
-        for index in 1:N
-            out[N] = Flux.Tracker.value(model(input[index:(index + window_size -1)]))[1]
-        end
-
-        return out
+        return Flux.Tracker.value(model(createWindowedSamples(input, window_size)))'
     end
 
     function generate_test_sound(sampling_rate, random_seed)
