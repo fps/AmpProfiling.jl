@@ -10,12 +10,12 @@ println("# of training output samples: $(length(training_output))")
 test_input = WAV.wavread("guitar_short.wav")[1][:,1]
 println("# of test samples: $(length(test_input))")
 
-window_size = 64
+window_size = 256
 
 m = AmpProfiling.create_model(window_size)
 
 batch_size = 128
-number_of_epochs = 20
+number_of_epochs = 10
 
 tm = AmpProfiling.train_model(m, window_size, training_input, training_output, batch_size, number_of_epochs)
 
