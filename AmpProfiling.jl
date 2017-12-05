@@ -14,7 +14,6 @@ module AmpProfiling
     
         non_linear_model = Flux.Chain(
             Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.relu),
-            Flux.Dense(trunc(Int, window_size / 2), trunc(Int, window_size / 2), Flux.relu),
             Flux.Dense(trunc(Int, window_size/2), trunc(Int, window_size / 4), Flux.σ),
             Flux.Dense(trunc(Int, window_size/4), 1))
 
@@ -70,6 +69,45 @@ module AmpProfiling
         return xs, ys
     end
 
+    function createInputOutputSamplesEWMA(input, output, window_size)
+        N = min(length(input), length(output))
+        xs = Array{Float64}(window_size,N)
+        ys = Array{Float64}(1,N)
+
+        coefficients = zeros(window_size,1)
+        for dim in 1:window_size
+            coefficients[dim, 1] = 0.5^(dim-1)
+        end
+
+        for dim in 1:window_size
+            xs[dim, 1] = input[1]
+        end
+
+        for index in 2:N 
+            for dim in 1:window_size
+                xs[dim, index] = coefficients[dim, 1] * input[index] + (1.0 - coefficients[dim, 1]) * xs[dim, index-1]
+            end
+        end
+
+        ys = output'
+
+        return xs, ys
+    end
+
+    function randomPermuteInputOutputSamples(input, output)
+        xs = input
+        ys = output
+
+        N = size(xs, 2)
+
+        p = Permutations.array(Permutations.RandomPermutation(N))
+
+        xs = xs[:, p]
+        ys = ys[:, p]
+
+        return xs, ys
+    end
+
     function createInputOutputBatches(input, output, batch_size)
         N = size(input,2)
 
@@ -84,31 +122,19 @@ module AmpProfiling
         return dataset
     end
 
-    function train_model(model, window_size, input, output, batch_size, number_of_epochs)
-        #window_size = size(model.linear_model.W, 2)
-        #window_size = size(model.W[1], 2)
-
-        println("Creating input/output samples...")
-        xs, ys = createInputOutputSamples(input, output, window_size)
-    
+    function train_model(model, window_size, dataset, number_of_epochs)
         loss(a, b) = Flux.mse(model(a), b)
-    
-        N = size(xs, 2)
-        println("# of input/output samples: $(N)")
     
         #opt = Flux.SGD(Flux.params(model), 0.1)
         #opt = Flux.ADAM([Flux.params(model.linear_model) ; Flux.params(model.non_linear_model)])
         opt = Flux.ADAM(Flux.params(model))
    
-        evalcb() = @show(loss(xs,ys))
+        evalcb() = @show(loss(dataset[1][1],dataset[1][2]))
         
-        println("Assembling batches...")
-        dataset = createInputOutputBatches(xs, ys, batch_size)
-
         for epoch in 1:number_of_epochs
             println("Training epoch $(epoch)...")
-            Flux.train!(loss, dataset, opt)
-            #Flux.train!(loss, dataset, opt, cb = Flux.throttle(evalcb, 15))
+            #Flux.train!(loss, dataset, opt)
+            Flux.train!(loss, dataset, opt, cb = Flux.throttle(evalcb, 1))
         end
         
         return model
