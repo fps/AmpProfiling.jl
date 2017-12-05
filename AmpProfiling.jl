@@ -129,9 +129,9 @@ module AmpProfiling
     function train_model(model, window_size, dataset, number_of_epochs)
         loss(a, b) = Flux.mse(model(a), b)
     
-        #opt = Flux.SGD(Flux.params(model), 0.1)
+        opt = Flux.SGD(Flux.params(model), 0.1)
         #opt = Flux.ADAM([Flux.params(model.linear_model) ; Flux.params(model.non_linear_model)])
-        opt = Flux.ADAM(Flux.params(model))
+        #opt = Flux.ADAM(Flux.params(model))
    
         evalcb() = @show(loss(dataset[1][1],dataset[1][2]))
         
