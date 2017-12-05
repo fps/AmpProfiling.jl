@@ -69,10 +69,9 @@ module AmpProfiling
         return xs, ys
     end
 
-    function createInputOutputSamplesEWMA(input, output, window_size)
-        N = min(length(input), length(output))
+    function createEWMASamples(input, window_size)
+        N = length(input)
         xs = Array{Float64}(window_size,N)
-        ys = Array{Float64}(1,N)
 
         coefficients = zeros(window_size,1)
         for dim in 1:window_size
@@ -89,6 +88,11 @@ module AmpProfiling
             end
         end
 
+        return xs
+    end
+
+    function createInputOutputSamplesEWMA(input, output, window_size)
+        xs = createEWMASamples(input, window_size)
         ys = output'
 
         return xs, ys
@@ -140,8 +144,8 @@ module AmpProfiling
         return model
     end
 
-    function applyModel(model, input, window_size)
-        return Flux.Tracker.value(model(createWindowedSamples(input, window_size)))'
+    function applyModel(model, input)
+        return Flux.Tracker.value(model(input))'
     end
 
     function generate_test_sound(sampling_rate, random_seed)
