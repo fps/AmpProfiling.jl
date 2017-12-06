@@ -75,7 +75,7 @@ module AmpProfiling
 
         coefficients = zeros(window_size,1)
         for dim in 1:window_size
-            coefficients[dim, 1] = 0.5^(dim-1)
+            coefficients[dim, 1] = 0.8^(dim-1)
         end
 
         for dim in 1:window_size
