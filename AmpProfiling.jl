@@ -69,13 +69,13 @@ module AmpProfiling
         return xs, ys
     end
 
-    function createEWMASamples(input, window_size)
+    function createEWMASamples(input, window_size, coefficient)
         N = length(input)
         xs = Array{Float64}(window_size,N)
 
         coefficients = zeros(window_size,1)
         for dim in 1:window_size
-            coefficients[dim, 1] = 0.8^(dim-1)
+            coefficients[dim, 1] = coefficient^(dim-1)
         end
 
         for dim in 1:window_size
@@ -91,8 +91,8 @@ module AmpProfiling
         return xs
     end
 
-    function createInputOutputSamplesEWMA(input, output, window_size)
-        xs = createEWMASamples(input, window_size)
+    function createInputOutputSamplesEWMA(input, output, window_size, coefficient)
+        xs = createEWMASamples(input, window_size, coefficient)
         ys = output'
 
         return xs, ys
@@ -193,5 +193,107 @@ module AmpProfiling
         return reshape(out, length(out), 1)
     end
     
+    function createCPPCode(model, name)
+        includes = """
+            #pragma once
+            #include <Eigen/Dense>
+            #include <vector>
+            """
+
+        parameters = """
+                std::vector<Eigen::MatrixXd> W;
+                std::vector<Eigen::MatrixXd> b;
+            """
+
+        constructor_body_parts = Array{String}(length(model.layers), 1)
+
+        for layer in 1:length(model.layers)
+            rows = size(model.layers[layer].W, 1)
+            cols = size(model.layers[layer].W, 2)
+
+            creation = """
+                        W.push_back(Eigen::MatrixXd($(rows), $(cols)));
+                        b.push_back(Eigen::MatrixXd($(rows), 1));
+                """
+
+            initialization_parts_W = Array{String}(rows,cols)
+            initialization_parts_b = Array{String}(rows)
+            for row in 1:rows
+                initialization_parts_b[row] = """
+                            b[$(layer-1)]($(row-1), 0) = $(Flux.Tracker.value(model.layers[layer].b[row]));
+                    """
+                for col in 1:cols
+                    initialization_parts_W[row, col] = """
+                                W[$(layer-1)]($(row-1), $(col-1)) = $(Flux.Tracker.value(model.layers[layer].W[row, col]));
+                        """
+                end
+            end
+
+            initialization = """
+                $(string(initialization_parts_W...))
+                $(string(initialization_parts_b...))
+                """
+
+            constructor_body_parts[layer] = """
+                        // Layer $(layer-1)
+                $(creation)
+                $(initialization)
+                """
+        end
+        
+
+        constructor = """
+                $(name)()
+                {
+            $(string(constructor_body_parts...))
+                }
+            """
+
+        struct_body = """
+            $(parameters)
+            $(constructor)
+            """
+
+        cppstruct = """
+            struct $(name)
+            {
+            $(struct_body)
+            };
+            """
+
+        cpp = """
+            $(includes)
+            $(cppstruct)
+            """
+        return cpp
+
+        println("#pragma once")
+        println("#include <Eigen/Dense>")
+        println("#include <vector>")
+        println("struct model")
+        println("{")
+        println("   // The matrix dimensions per layer")
+        println("   std::vector<size_t> m_rows;")
+        println("   std::vector<size_t> m_cols;")
+        println("   std::vector<Eigen::MatrixXd> W;")
+        println("   std::vector<Eigen::MatrixXd> b;")
+        println("   model()")
+        println("   {")
+        for layer in 1:length(model.layers)
+            println("       m_rows.push_back($(size(model.layers[layer].W, 1)));")
+            println("       m_cols.push_back($(size(model.layers[layer].W, 2)));")
+            println("       W.push_back(Eigen::MatrixXd(m_rows[$(layer-1)], m_cols[$(layer)]));")
+            println("       b.push_back(Eigen::MatrixXd(m_rows[$(layer-1)], 1));")
+            for row in 1:size(model.layers[layer].W,1)
+                println("       b[$(layer-1)]($(row-1), 0) = $(Flux.Tracker.value(model.layers[layer].b[row]));")
+                for col in 1:size(model.layers[layer].W,2)
+                    println("       W[$(layer-1)]($(row-1), $(col-1)) = $(Flux.Tracker.value(model.layers[layer].W[row,col]));")
+                end
+            end
+        end
+        println("   }")
+        println("};")
+    end
     
 end
+
