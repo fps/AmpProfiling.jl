@@ -229,15 +229,11 @@ module AmpProfiling
                 end
             end
 
-            initialization = """
-                $(string(initialization_parts_W...))
-                $(string(initialization_parts_b...))
-                """
-
             constructor_body_parts[layer] = """
                         // Layer $(layer-1)
                 $(creation)
-                $(initialization)
+                $(string(initialization_parts_W...))
+                $(string(initialization_parts_b...))
                 """
         end
         
@@ -267,33 +263,7 @@ module AmpProfiling
             """
         return cpp
 
-        println("#pragma once")
-        println("#include <Eigen/Dense>")
-        println("#include <vector>")
-        println("struct model")
-        println("{")
-        println("   // The matrix dimensions per layer")
-        println("   std::vector<size_t> m_rows;")
-        println("   std::vector<size_t> m_cols;")
-        println("   std::vector<Eigen::MatrixXd> W;")
-        println("   std::vector<Eigen::MatrixXd> b;")
-        println("   model()")
-        println("   {")
-        for layer in 1:length(model.layers)
-            println("       m_rows.push_back($(size(model.layers[layer].W, 1)));")
-            println("       m_cols.push_back($(size(model.layers[layer].W, 2)));")
-            println("       W.push_back(Eigen::MatrixXd(m_rows[$(layer-1)], m_cols[$(layer)]));")
-            println("       b.push_back(Eigen::MatrixXd(m_rows[$(layer-1)], 1));")
-            for row in 1:size(model.layers[layer].W,1)
-                println("       b[$(layer-1)]($(row-1), 0) = $(Flux.Tracker.value(model.layers[layer].b[row]));")
-                for col in 1:size(model.layers[layer].W,2)
-                    println("       W[$(layer-1)]($(row-1), $(col-1)) = $(Flux.Tracker.value(model.layers[layer].W[row,col]));")
-                end
-            end
-        end
-        println("   }")
-        println("};")
     end
-    
+   
 end
 
