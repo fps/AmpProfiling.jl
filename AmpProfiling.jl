@@ -3,6 +3,20 @@ module AmpProfiling
     import Flux
     import Flux.Tracker
     
+    function create_non_linear_model(window_size)
+        return Flux.Chain(
+            Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.relu),
+            Flux.Dense(trunc(Int, window_size/2), trunc(Int, window_size / 4), Flux.relu),
+            Flux.Dense(trunc(Int, window_size/4), 1))
+    end
+
+    function create_linear_model(window_size)
+        return Flux.Dense(window_size, 1)
+    end
+
+    function create_unrolled_model(window_size1, window_size2)
+        
+    end
 
     """
         Creates a model that operates on an input 
