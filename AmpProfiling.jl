@@ -7,7 +7,6 @@ module AmpProfiling
         f
         N
         in
-        out
     end
 
     #Convolutional(f, in::Integer, out::Integer, N::Integer) =
@@ -15,16 +14,18 @@ module AmpProfiling
 
     # Overload call, so the object can be used as a function
     function (m::Convolutional)(x)
-        x_data = x
-        ret = zeros(m.out+m.N-1, size(x_data,2))
+        ret = Flux.Tracker.TrackedArray(zeros(m.N))
         for n = 1:m.N
+            mask = zeros(m.N)
+            mask[n] = 1
             in_start  = n
             in_end    = n + m.in - 1
-            out_start = n
-            out_end   = n + m.out - 1
-            ret[out_start:out_end,:] = Flux.Tracker.data(m.f(x_data[in_start:in_end,:]))
+            
+            input = x[in_start:in_end]
+            
+            ret = ret .+ (mask .* m.f(input))
         end
-        return Flux.TrackedArray(ret)
+        return ret
     end
 
     function create_non_linear_model(window_size)
