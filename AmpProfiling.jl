@@ -3,6 +3,30 @@ module AmpProfiling
     import Flux
     import Flux.Tracker
     
+    struct Convolutional
+        f
+        N
+        in
+        out
+    end
+
+    #Convolutional(f, in::Integer, out::Integer, N::Integer) =
+    #    Convolutional(f, N, in, out)
+
+    # Overload call, so the object can be used as a function
+    function (m::Convolutional)(x)
+        x_data = x
+        ret = zeros(m.out+m.N-1, size(x_data,2))
+        for n = 1:m.N
+            in_start  = n
+            in_end    = n + m.in - 1
+            out_start = n
+            out_end   = n + m.out - 1
+            ret[out_start:out_end,:] = Flux.Tracker.data(m.f(x_data[in_start:in_end,:]))
+        end
+        return Flux.TrackedArray(ret)
+    end
+
     function create_non_linear_model(window_size)
         return Flux.Chain(
             Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.relu),
