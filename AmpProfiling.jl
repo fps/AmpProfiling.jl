@@ -39,6 +39,20 @@ module AmpProfiling
         return Flux.Dense(window_size, 1)
     end
 
+    struct G
+        W
+        G(i, o) = new(Flux.param(Flux.initn(i, o)))
+    end
+    
+    (g::G)(fs) = g.W' * fs
+    
+    function create_layered_model(window_size1, window_size2)
+        f = create_non_linear_model(window_size1);
+        g = G(window_size2, 1)
+        return g
+    end
+    
+    
     function create_unrolled_model(window_size1, window_size2)
         
     end
