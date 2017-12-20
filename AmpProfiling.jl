@@ -52,8 +52,31 @@ module AmpProfiling
         return g
     end
     
+    struct H
+        p1
+        p2
+        lm
+        nlm
+        function H(lms, nlms)
+            tlm = create_linear_model(nlms)
+            tnlm = create_non_linear_model(lms)
+            return new(Flux.params(tnlm),Flux.params(tlm),  tlm, tnlm)
+        end
+    end
     
-    function create_unrolled_model(window_size1, window_size2)
+    
+    function (h::H)(x) 
+        return h.lm((h.nlm(x))')
+    end
+    
+    function create_unrolled_model(window_size1, window_size2, train)
+        lm = create_linear_model(window_size2)
+        nlm = create_non_linear_model(window_size2)
+        
+        function m(x)
+            return lm.(nlm(x)')
+        end
+        
         
     end
 
@@ -70,15 +93,6 @@ module AmpProfiling
             Flux.Dense(trunc(Int, window_size/2), trunc(Int, window_size / 4), Flux.relu),
             Flux.Dense(trunc(Int, window_size/4), 1))
 
-        #non_linear_model = Flux.Chain(
-        #    Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.σ),
-        #    Flux.Dense(trunc(Int, window_size/2), trunc(Int, window_size / 4), Flux.σ),
-        #    Flux.Dense(trunc(Int, window_size/4), 1))
-        #non_linear_model = Flux.Dense(trunc(Int, window_size), 1, Flux.relu)
-        function model(xs)
-            return linear_model(xs) .+ non_linear_model(xs)
-        end
-    
         return non_linear_model
     end
     
