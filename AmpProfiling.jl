@@ -60,10 +60,9 @@ module AmpProfiling
         function H(lms, nlms)
             tlm = create_linear_model(nlms)
             tnlm = create_non_linear_model(lms)
-            return new(Flux.params(tnlm),Flux.params(tlm),  tlm, tnlm)
+            return new(Flux.params(tnlm), Flux.params(tlm),  tlm, tnlm)
         end
     end
-    
     
     function (h::H)(x) 
         return h.lm((h.nlm(x))')
