@@ -55,17 +55,21 @@ module AmpProfiling
     struct H
         p1
         p2
-        lm
         nlm
-        function H(lms, nlms)
-            tlm = create_linear_model(nlms)
-            tnlm = create_non_linear_model(lms)
-            return new(Flux.params(tnlm), Flux.params(tlm),  tlm, tnlm)
+        lm
+        function H(nlms, lms)
+            tnlm = create_non_linear_model(nlms)
+            tlm = create_linear_model(lms)
+            return new(Flux.params(tnlm), Flux.params(tlm),  tnlm, tlm)
         end
     end
     
     function (h::H)(x) 
         return h.lm((h.nlm(x))')
+    end
+
+    function params(h::H)
+        return [ Flux.params(h.nlm); Flux.params(h.lm) ]
     end
     
     function create_unrolled_model(window_size1, window_size2, train)
