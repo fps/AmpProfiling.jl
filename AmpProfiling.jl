@@ -3,55 +3,7 @@ module AmpProfiling
     import Flux
     import Flux.Tracker
     
-    struct Convolutional
-        f
-        N
-        in
-    end
-
-    #Convolutional(f, in::Integer, out::Integer, N::Integer) =
-    #    Convolutional(f, N, in, out)
-
-    # Overload call, so the object can be used as a function
-    function (m::Convolutional)(x)
-        ret = Flux.Tracker.TrackedArray(zeros(m.N))
-        for n = 1:m.N
-            mask = zeros(m.N)
-            mask[n] = 1
-            in_start  = n
-            in_end    = n + m.in - 1
-            
-            input = x[in_start:in_end]
-            
-            ret = ret .+ (mask .* m.f(input))
-        end
-        return ret
-    end
-
-    function create_non_linear_model(window_size)
-        return Flux.Chain(
-            Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.relu),
-            Flux.Dense(trunc(Int, window_size/2), trunc(Int, window_size / 4), Flux.relu),
-            Flux.Dense(trunc(Int, window_size/4), 1))
-    end
-
-    function create_linear_model(window_size)
-        return Flux.Dense(window_size, 1)
-    end
-
-    struct G
-        W
-        G(i, o) = new(Flux.param(Flux.initn(i, o)))
-    end
-    
-    (g::G)(fs) = g.W' * fs
-    
-    function create_layered_model(window_size1, window_size2)
-        f = create_non_linear_model(window_size1);
-        g = G(window_size2, 1)
-        return g
-    end
-    
+   
     struct H
         p1
         p2
@@ -71,18 +23,11 @@ module AmpProfiling
     function params(h::H)
         return [ Flux.params(h.nlm); Flux.params(h.lm) ]
     end
-    
-    function create_unrolled_model(window_size1, window_size2, train)
-        lm = create_linear_model(window_size2)
-        nlm = create_non_linear_model(window_size2)
-        
-        function m(x)
-            return lm.(nlm(x)')
-        end
-        
+
+    function unroll_input(input, nlms, lms)
         
     end
-
+    
     """
         Creates a model that operates on an input 
         window of size `window_size`
