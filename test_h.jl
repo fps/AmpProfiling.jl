@@ -1,50 +1,40 @@
 include("AmpProfiling.jl")
+
 import WAV
 
 #function test()
-    training_input = WAV.wavread("guitar_short.wav")[1][:,1]
+    input_range = 1:2500
+    training_input = WAV.wavread("guitar_short.wav")[1][input_range,1]
     println("# of training input samples: $(length(training_input))")
     
-    training_output = WAV.wavread("guitar_processed.wav")[1][:,1]
+    training_output = WAV.wavread("guitar_processed.wav")[1][input_range,1]
     println("# of training output samples: $(length(training_output))")
     
     test_input = WAV.wavread("guitar_short.wav")[1][:,1]
     println("# of test samples: $(length(test_input))")
     
-    window_size = 128
+    nlms = 32
+    lms = 512
     
-    m = AmpProfiling.create_model(window_size)
-    
-    batch_size = 32
-    number_of_epochs = 20
-    
-    println("Creating input/output samples...")
-    xs, ys = AmpProfiling.createInputOutputSamples(training_input, training_output, window_size)
-    
-    println("Permutations...")
-    perm_xs, perm_ys = AmpProfiling.randomPermuteInputOutputSamples(xs, ys)
-    
-    
-    N = size(xs, 2)
-    println("# of input/output samples: $(N)")
-    
-    xs = []
-    ys = []
+    h = AmpProfiling.H(nlms, lms)
 
-    println("Assembling batches...")
-    dataset = AmpProfiling.createInputOutputBatches(perm_xs, perm_ys, batch_size)
+    unrolled = AmpProfiling.unroll(training_input, h, training_output)
+     
+    loss(x, y) = Flux.mse(h(x), y)
+    #opt = Flux.SGD(AmpProfiling.params(h), decay = 0.01)
+    opt = Flux.ADAM(AmpProfiling.params(h))
     
-    perm_xs = []
-    perm_ys = []
-
-    tm = AmpProfiling.train_model(m, window_size, dataset, number_of_epochs)
-    
-    println("Applying model to test data...")
-    test_xs = AmpProfiling.createWindowedSamples(test_input, window_size)
-    test_output = AmpProfiling.applyModel(tm, test_xs)
-    
-    println("Writing output file...")
-    WAV.wavwrite(test_output, "tm_guitar.wav", Fs=48000)
-    
-    return m
+    for index in 1:500
+        p = Permutations.array(Permutations.RandomPermutation(length(unrolled)))
+        Flux.train!(loss, unrolled[p], opt)
+        println(loss(unrolled[100][1], unrolled[100][2]))
+    end
+#    println("Applying model to test data...")
+#    test_xs = AmpProfiling.createWindowedSamples(test_input, window_size)
+#    test_output = AmpProfiling.applyModel(tm, test_xs)
+#    
+#    println("Writing output file...")
+#    WAV.wavwrite(test_output, "tm_guitar.wav", Fs=48000)
+#    
+#    return m
 #end

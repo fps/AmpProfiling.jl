@@ -2,17 +2,30 @@ module AmpProfiling
 
     import Flux
     import Flux.Tracker
-    
+
+    function create_non_linear_model(window_size)
+        return Flux.Chain(
+            Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.relu),
+            Flux.Dense(trunc(Int, window_size/2), trunc(Int, window_size / 4), Flux.relu),
+            Flux.Dense(trunc(Int, window_size/4), 1))
+    end
+
+    function create_linear_model(window_size)
+        return Flux.Dense(window_size, 1)
+    end
+ 
    
     struct H
         p1
         p2
         nlm
         lm
+        nlms
+        lms
         function H(nlms, lms)
             tnlm = create_non_linear_model(nlms)
             tlm = create_linear_model(lms)
-            return new(Flux.params(tnlm), Flux.params(tlm),  tnlm, tlm)
+            return new(Flux.params(tnlm), Flux.params(tlm),  tnlm, tlm, nlms, lms)
         end
     end
     
@@ -20,12 +33,43 @@ module AmpProfiling
         return h.lm((h.nlm(x))')
     end
 
-    function params(h::H)
+    function params(h)
         return [ Flux.params(h.nlm); Flux.params(h.lm) ]
     end
 
-    function unroll_input(input, nlms, lms)
-        
+
+    function unroll_single_input(input, h, input_index)
+        lms = h.lms
+        nlms = h.nlms
+        unrolled_at_index = zeros(nlms, lms)
+               
+        for window_index in 1:lms
+            rstart = input_index + window_index - 1
+            rend   = input_index + window_index + nlms - 2
+            unrolled_at_index[:, window_index] = input[rstart:rend]
+        end
+        return unrolled_at_index
+ 
+    end
+
+    function unroll(input, h::H, output)
+        nlms = h.nlms
+        lms = h.lms
+        N = length(input) - (nlms + lms -1)
+        unrolled = Array{Tuple{Array{Float64,2}, Float64},1}(N)
+
+        for input_index in 1:N
+            unrolled_at_index = zeros(nlms, lms)
+                
+            for window_index in 1:lms
+                rstart = input_index + window_index - 1
+                rend   = input_index + window_index + nlms - 2
+                unrolled_at_index[:, window_index] = input[rstart:rend]
+            end
+            unrolled[input_index] = (unrolled_at_index, output[input_index + lms + nlms - 1])
+        end
+
+        return unrolled
     end
     
     """
