@@ -13,7 +13,7 @@ import WAV
     test_input = WAV.wavread("guitar_short.wav")[1][:,1]
     println("# of test samples: $(length(test_input))")
     
-    nlms = 32
+    nlms = 64
     lms = 512
     
     h = AmpProfiling.H(nlms, lms)
