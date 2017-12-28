@@ -12,8 +12,8 @@ import WAV
     test_input = WAV.wavread("guitar_short.wav")[1][:,1]
     println("# of test samples: $(length(test_input))")
     
-    nlms = 32
-    lms = 512
+    nlms = 64
+    lms = 1024
     
     batchsize = 1500
 
@@ -25,7 +25,7 @@ import WAV
     #opt = Flux.SGD(AmpProfiling.params(h), decay = 0.01)
     opt = Flux.ADAM(AmpProfiling.params(h))
     
-    epochs = 100
+    epochs = 1000
     
     for index in 1:epochs
         sindex = randperm(N)[1]
@@ -36,6 +36,8 @@ import WAV
         Flux.train!(loss, unrolled[p], opt)
         println(loss(unrolled[1][1], unrolled[1][2]))
     end
+    output = zeros(length(test_input)); for n in 1:length(test_input); output[n] = Flux.Tracker.value(h(AmpProfiling.unroll_single_input(test_input, h, n)))[1]; end
+
 #    println("Applying model to test data...")
 #    test_xs = AmpProfiling.createWindowedSamples(test_input, window_size)
 #    test_output = AmpProfiling.applyModel(tm, test_xs)
