@@ -15,7 +15,9 @@ import WAV
     nlms = 64
     lms = 1024
     
-    batchsize = 1500
+    batchsize = 500
+
+    unroll_batchsize = nlms + lms + batchsize - 1
 
     N = min(length(training_input), length(training_output)) - (batchsize + nlms + lms -1)
     
@@ -29,7 +31,7 @@ import WAV
     
     for index in 1:epochs
         sindex = randperm(N)[1]
-        eindex = sindex + batchsize
+        eindex = sindex + unroll_batchsize
         unrolled = AmpProfiling.unroll(training_input[sindex:eindex], h, training_output[sindex:eindex])
      
         p = Permutations.array(Permutations.RandomPermutation(length(unrolled)))
