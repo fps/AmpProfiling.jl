@@ -1,19 +1,30 @@
 module AmpProfiling
 
+    include("data.jl")
+
     import Flux
     import Flux.Tracker
 
     function create_non_linear_model(window_size)
         return Flux.Chain(
-            Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.relu),
-            Flux.Dense(trunc(Int, window_size/2), trunc(Int, window_size / 4), Flux.relu),
-            Flux.Dense(trunc(Int, window_size/4), 1))
+            Flux.Dense(window_size, trunc(Int, window_size / 2), Flux.elu),
+            Flux.Dense(trunc(Int, window_size/2), trunc(Int, window_size / 4), Flux.elu),
+            Flux.Dense(trunc(Int, window_size/4), 1, Flux.elu))
     end
 
     function create_linear_model(window_size)
         return Flux.Dense(window_size, 1)
     end
  
+    function unroll_time(input, window_size)
+        N = length(input) - window_size
+        output = Array{Any}(N,1)
+
+        for index in 1:N
+            output[index] = view(input, index:(index+window_size-1))
+        end
+        return output
+    end
    
     struct H
         p1
@@ -30,7 +41,7 @@ module AmpProfiling
     end
     
     function (h::H)(x) 
-        return h.lm((h.nlm(x))')
+        return h.lm((h.nlm.(x))')
     end
 
     function params(h)
@@ -207,122 +218,4 @@ module AmpProfiling
         return Flux.Tracker.value(model(input))'
     end
 
-    function generate_test_sound(sampling_rate, random_seed)
-        # make it reproducible
-        srand(random_seed)
-    
-        out = Array{Float64}(1)
-    
-        # append a single dirac pulse after 10 samples so we can check
-        # with the processed signal later
-        append!(out, zeros(10))
-        append!(out, ones(1))
-        append!(out, zeros(10))
-    
-        # add a pause of 0.1 secs
-        pause_seconds = 0.1
-        pause = zeros(1, (Int64)(pause_seconds * sampling_rate))
-    
-        append!(out, pause)
-    
-        # generate random dirac pulses to probe the dynamic range
-        # of the processor
-        for index in 1:1000
-            append!(out, 2.0 * rand(1) - 1)
-    
-            pause_seconds = 0.01 * rand(1)[1]
-            pause = zeros(1, trunc(Int, pause_seconds * sampling_rate))
-    
-            append!(out, pause)
-        end
-    
-        # and generate random frequency blips to probe some more
-        # for freq in 50.0:50.0:(sampling_rate/4.0)
-        for index in 1:1000
-            freq = abs(sampling_rate / 8.0) * randn(1)[1]
-            #freq = (sampling_rate / 2.0) * rand(1)[1]
-            #freq = 100.0
-            #append!(out, sin.(0:(2.0*pi*freq/sampling_rate):(sampling_rate / freq))')
-    
-            gain = rand(1)[1]
-            append!(out, gain .* sin.(freq * 2.0 * pi .* (0:(1.0/sampling_rate):(1.0/freq)))')
-            append!(out, zeros(trunc(Int, 0.01 * sampling_rate)))
-        end
-    
-        return reshape(out, length(out), 1)
-    end
-    
-    function createCPPCode(model, name)
-        includes = """
-            #pragma once
-            #include <Eigen/Dense>
-            #include <vector>
-            """
-
-        parameters = """
-                std::vector<Eigen::MatrixXd> W;
-                std::vector<Eigen::MatrixXd> b;
-            """
-
-        constructor_body_parts = Array{String}(length(model.layers), 1)
-
-        for layer in 1:length(model.layers)
-            rows = size(model.layers[layer].W, 1)
-            cols = size(model.layers[layer].W, 2)
-
-            creation = """
-                        W.push_back(Eigen::MatrixXd($(rows), $(cols)));
-                        b.push_back(Eigen::MatrixXd($(rows), 1));
-                """
-
-            initialization_parts_W = Array{String}(rows,cols)
-            initialization_parts_b = Array{String}(rows)
-            for row in 1:rows
-                initialization_parts_b[row] = """
-                            b[$(layer-1)]($(row-1), 0) = $(Flux.Tracker.value(model.layers[layer].b[row]));
-                    """
-                for col in 1:cols
-                    initialization_parts_W[row, col] = """
-                                W[$(layer-1)]($(row-1), $(col-1)) = $(Flux.Tracker.value(model.layers[layer].W[row, col]));
-                        """
-                end
-            end
-
-            constructor_body_parts[layer] = """
-                        // Layer $(layer-1)
-                $(creation)
-                $(string(initialization_parts_W...))
-                $(string(initialization_parts_b...))
-                """
-        end
-        
-
-        constructor = """
-                $(name)()
-                {
-            $(string(constructor_body_parts...))
-                }
-            """
-
-        struct_body = """
-            $(parameters)
-            $(constructor)
-            """
-
-        cppstruct = """
-            struct $(name)
-            {
-            $(struct_body)
-            };
-            """
-
-        cpp = """
-            $(includes)
-            $(cppstruct)
-            """
-        return cpp
-
-    end
-   
 end
-
