@@ -23,7 +23,7 @@ module AmpProfiling
         b
         function G(nlms, lms)
             non_linear_model = create_non_linear_model(nlms)
-            return new(non_linear_model, nlms, Flux.param(randn(lms)), Flux.param(randn(1)))
+            return new(non_linear_model, nlms, Flux.param(randn(lms)'), Flux.param(randn(1)))
         end
     end
 
@@ -33,7 +33,7 @@ module AmpProfiling
 
     function (g::G)(x)
         onlm = g.non_linear_model.(x)
-        return g.W' * onlm .+ g.b
+        return (g.W * onlm)[1] .+ g.b
     end
  
     struct H
