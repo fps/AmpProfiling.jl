@@ -15,20 +15,28 @@ module AmpProfiling
     function create_linear_model(window_size)
         return Flux.Dense(window_size, 1)
     end
- 
-    function unroll_time(input, window_size)
-        N = length(input) - window_size
-        output = Array{Any}(N,1)
 
-        for index in 1:N
-            output[index] = view(input, index:(index+window_size-1))
+    struct G
+        non_linear_model
+        nlms
+        W
+        b
+        function G(nlms, lms)
+            non_linear_model = create_non_linear_model(nlms)
+            return new(non_linear_model, nlms, Flux.param(randn(lms)), Flux.param(randn(1)))
         end
-        return output
     end
-   
+
+    function params(g::G)
+        return [Flux.params(g.non_linear_model); g.W; g.b]
+    end
+
+    function (g::G)(x)
+        onlm = g.non_linear_model.(x)
+        return g.W' * onlm .+ g.b
+    end
+ 
     struct H
-        p1
-        p2
         nlm
         lm
         nlms
@@ -36,7 +44,7 @@ module AmpProfiling
         function H(nlms, lms)
             tnlm = create_non_linear_model(nlms)
             tlm = create_linear_model(lms)
-            return new(Flux.params(tnlm), Flux.params(tlm),  tnlm, tlm, nlms, lms)
+            return new(tnlm, tlm, nlms, lms)
         end
     end
     

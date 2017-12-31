@@ -6,6 +6,17 @@ training_output() = WAV.wavread("guitar_processed.wav")[1]
 
 test_input() = WAV.wavread("guitar_short.wav")[1][:,1]
 
+function unroll_time(input, window_size)
+    N = length(input) - window_size
+    output = Array{Any}(N,1)
+
+    for index in 1:N
+        output[index] = view(input, index:(index+window_size-1))
+    end
+    return output
+end
+
+
 function generate_test_sound(sampling_rate, random_seed)
     # make it reproducible
     srand(random_seed)
