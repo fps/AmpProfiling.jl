@@ -15,7 +15,7 @@ import WAV
 
     
     println("unrolling data...")
-    nlms = 32
+    nlms = 64
     lms = 1024
 
     N = min(length(training_input), length(training_output)) - (nlms + lms +1)
@@ -25,7 +25,7 @@ import WAV
     # unrolled_training_input = AmpProfiling.unroll_time2(AmpProfiling.unroll_time(AmpProfiling.training_input(), nlms), lms)
     data = collect(zip(unrolled_training_input[1:N], training_output[(nlms+lms-1).+(1:N)]))
     
-    batchsize = 50
+    batchsize = 500
 
     unroll_batchsize = nlms + lms + batchsize - 1
 
@@ -40,6 +40,7 @@ import WAV
     
     println("training...")
     for index in 1:epochs
+        println(index)
         p = randperm(N)[1:batchsize]
         Flux.train!(loss, data[p], opt)
         println(loss(data[1][1], data[1][2]))
