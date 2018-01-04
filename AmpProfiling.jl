@@ -28,14 +28,24 @@ module AmpProfiling
     end
 
     function params(g::G)
-        return [Flux.params(g.non_linear_model); g.W; g.b]
+        return vcat(Flux.params(g.non_linear_model), [g.W], [g.b])
     end
 
     function (g::G)(x)
-        onlm = g.non_linear_model.(x)
-        return (g.W * foldl(vcat, onlm)) + g.b
+        onlm = g.non_linear_model(x)
+        return (g.W * onlm') .+ g.b
     end
  
+    function unroll_time2(input, window_size)
+        N = length(input) - (window_size - 1)
+        output = zeros(window_size, N)
+        
+        for n in 1:N
+            output[:,n] = input[n:(n+window_size-1)]
+        end
+        return output
+    end
+
     struct H
         nlm
         lm

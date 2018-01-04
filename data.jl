@@ -7,11 +7,11 @@ training_output() = WAV.wavread("guitar_processed.wav")[1]
 test_input() = WAV.wavread("guitar_short.wav")[1][:,1]
 
 function unroll_time(input, window_size)
-    N = length(input) - window_size
+    N = size(input,2) - (window_size - 1)
     output = Array{Any}(N,1)
 
-    for index in 1:N
-        output[index] = view(input, index:(index+window_size-1))
+    for n in 1:N
+        output[n] = view(input, :, n:(n+window_size-1))
     end
     return output
 end

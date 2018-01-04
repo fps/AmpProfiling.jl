@@ -3,6 +3,7 @@ include("AmpProfiling.jl")
 import WAV
 
 #function test()
+    println("loading data...")
     training_input = WAV.wavread("guitar_clean.wav")[1]
     println("# of training input samples: $(length(training_input))")
     
@@ -13,17 +14,21 @@ import WAV
     println("# of test samples: $(length(test_input))")
 
     
-    nlms = 64
+    println("unrolling data...")
+    nlms = 32
     lms = 1024
 
-    unrolled_training_input = AmpProfiling.unroll_time(AmpProfiling.training_input(), nlms)
-    data = zip(unrolled_training_input, training_output)
+    N = min(length(training_input), length(training_output)) - (nlms + lms +1)
+
+    unrolled_training_input = AmpProfiling.unroll_time(AmpProfiling.unroll_time2(AmpProfiling.training_input(), nlms), lms)
+
+    # unrolled_training_input = AmpProfiling.unroll_time2(AmpProfiling.unroll_time(AmpProfiling.training_input(), nlms), lms)
+    data = collect(zip(unrolled_training_input[1:N], training_output[(nlms+lms-1).+(1:N)]))
     
-    batchsize = 500
+    batchsize = 50
 
     unroll_batchsize = nlms + lms + batchsize - 1
 
-    N = min(length(training_input), length(training_output)) - (batchsize + nlms + lms -1)
     
     h = AmpProfiling.G(nlms, lms)
 
@@ -31,13 +36,21 @@ import WAV
     #opt = Flux.SGD(AmpProfiling.params(h), decay = 0.01)
     opt = Flux.ADAM(AmpProfiling.params(h))
     
-    epochs = 1000
+    epochs = 10000
     
+    println("training...")
     for index in 1:epochs
-        Flux.train!(loss, [data], opt)
-        println(loss(unrolled[1][1], unrolled[1][2]))
+        p = randperm(N)[1:batchsize]
+        Flux.train!(loss, data[p], opt)
+        println(loss(data[1][1], data[1][2]))
     end
-    output = zeros(length(test_input)); for n in 1:length(test_input); output[n] = Flux.Tracker.value(h(AmpProfiling.unroll_single_input(test_input, h, n)))[1]; end
+    # output = zeros(length(test_input)); for n in 1:length(test_input); output[n] = Flux.Tracker.value(h(AmpProfiling.unroll_single_input(test_input, h, n)))[1]; end
+
+    println("generating output...")
+    output = zeros(length(test_input)); for n in 1:length(test_input); output[n] = h(unrolled_training_input[n]).data[1]; end
+
+    println("writing output file...")
+    WAV.wavwrite(output, "tm_guitar.wav", Fs=48000)
 
 #    println("Applying model to test data...")
 #    test_xs = AmpProfiling.createWindowedSamples(test_input, window_size)
